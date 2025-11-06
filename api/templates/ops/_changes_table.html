@@ -1,0 +1,35 @@
+<table>
+    <thead>
+        <tr>
+            <th>Customer</th>
+            <th>Slot</th>
+            <th>Old Technician</th>
+            <th>New Technician</th>
+            <th>Old Distance</th>
+            <th>New Distance</th>
+            <th>Delta</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for change in changes %}
+        <tr class="{% if change.changed %}changed{% endif %}">
+            <td>{{ change.customer_name }}</td>
+            <td>{{ change.slot }}</td>
+            <td>{{ change.old_technician|default:"—" }}</td>
+            <td>{{ change.new_technician|default:"—" }}</td>
+            <td>{{ change.old_km|floatformat:2 }} km</td>
+            <td>{{ change.new_km|floatformat:2 }} km</td>
+            <td>
+                {% if change.delta_km > 0 %}
+                    <span style="color: #28a745;">-{{ change.delta_km|floatformat:2 }} km</span>
+                {% elif change.delta_km < 0 %}
+                    <span style="color: #dc3545;">+{{ change.abs_delta_km|floatformat:2 }} km</span>
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+

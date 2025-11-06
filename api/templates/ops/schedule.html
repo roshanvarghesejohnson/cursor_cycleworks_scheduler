@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>Schedule Optimization Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; color: #333; }
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .filters form {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label { font-weight: 500; color: #555; font-size: 14px; }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            padding: 8px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        .card.saved .value { color: #28a745; }
+        .actions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .actions h2 { margin-bottom: 15px; font-size: 18px; }
+        .actions button {
+            margin-right: 10px;
+            padding: 10px 24px;
+        }
+        .actions button.apply {
+            background: #28a745;
+        }
+        .actions button.apply:hover {
+            background: #218838;
+        }
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .table-container h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        tr:hover { background: #f8f9fa; }
+        tr.changed { background: #d4edda; }
+        .collapsible {
+            margin-top: 20px;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collapsible-header:hover {
+            background: #e9ecef;
+        }
+        .collapsible-content {
+            display: none;
+            margin-top: 10px;
+        }
+        .collapsible-content.active {
+            display: block;
+        }
+        .alert {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .tech-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .tech-name {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+        }
+
+        .tech-section {
+            margin-bottom: 15px;
+        }
+
+        .tech-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .tech-section-title {
+            display: block;
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .tech-table {
+            width: 100%;
+            font-size: 13px;
+            border-collapse: collapse;
+        }
+
+        .tech-table thead tr {
+            background: #f0f0f0;
+        }
+
+        .tech-table th,
+        .tech-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tech-table th {
+            font-weight: 600;
+            color: #555;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .tech-table-after thead tr {
+            background: #e8f5e9;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Schedule Optimization Dashboard</h1>
+        
+        <div class="filters">
+            <form method="get" id="filterForm">
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <select name="city" id="city">
+                        {% for c in cities %}
+                            <option value="{{ c }}" {% if c == city %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="date">Date</label>
+                    <input type="date" name="date" id="date" value="{{ date }}" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Load</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        {% if preview_data %}
+        <div class="summary-cards">
+            <div class="card">
+                <h3>Before Total Distance</h3>
+                <div class="value">{{ preview_data.before.total_km|floatformat:2 }} km</div>
+            </div>
+            <div class="card">
+                <h3>After Total Distance</h3>
+                <div class="value">{{ preview_data.after.total_km|floatformat:2 }} km</div>
+            </div>
+            <div class="card saved">
+                <h3>Distance Saved</h3>
+                <div class="value">{{ preview_data.distance_saved_km|floatformat:2 }} km</div>
+            </div>
+            <div class="card">
+                <h3>Groups Optimized</h3>
+                <div class="value">{{ preview_data.groups_optimized }}</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <h2>Actions</h2>
+            <button id="previewBtn" onclick="previewOptimization()">Preview Optimization</button>
+            <button id="applyBtn" class="apply" onclick="applyOptimization()">Apply Optimization</button>
+        </div>
+
+        <div class="table-container">
+            <h2>Current Assignments</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Slot</th>
+                        <th>Technician</th>
+                        <th>Distance (km)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in preview_data.before.assignments %}
+                    <tr>
+                        <td>{{ assignment.customer_name }}</td>
+                        <td>{{ assignment.slot }}</td>
+                        <td>{{ assignment.tech_name }}</td>
+                        <td>{{ assignment.distance_km|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-container">
+            <h2>Technician Assignments</h2>
+            <div class="tech-grid">
+                {% for tech_name, assignments in technician_assignments.items %}
+                <div class="tech-card">
+                    <h3 class="tech-name">{{ tech_name }}</h3>
+                    <div class="tech-section">
+                        <strong class="tech-section-title">Current Assignments ({{ assignments.before|length }}):</strong>
+                        <table class="tech-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Slot</th>
+                                    <th class="text-right">Distance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments.before %}
+                                <tr>
+                                    <td>{{ assignment.customer_name }}</td>
+                                    <td>{{ assignment.slot }}</td>
+                                    <td class="text-right">{{ assignment.distance_km|floatformat:2 }} km</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if preview_data %}
+                    <div class="tech-section">
+                        <strong class="tech-section-title">After Optimization ({{ assignments.after|length }}):</strong>
+                        <table class="tech-table tech-table-after">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Slot</th>
+                                    <th class="text-right">Distance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments.after %}
+                                <tr>
+                                    <td>{{ assignment.customer_name }}</td>
+                                    <td>{{ assignment.slot }}</td>
+                                    <td class="text-right">{{ assignment.distance_km|floatformat:2 }} km</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="collapsible">
+            <div class="collapsible-header" onclick="toggleChanges()">
+                <h2>Preview Changes ({{ preview_data.changes|length }} bookings)</h2>
+                <span id="toggleIcon">▼</span>
+            </div>
+            <div class="collapsible-content" id="changesContent">
+                {% include 'ops/_changes_table.html' with changes=preview_data.changes %}
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-error">
+            No bookings found for {{ city }} on {{ date }}. Please select a different city or date.
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        const city = '{{ city }}';
+        const date = '{{ date }}';
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrfToken = getCookie('csrftoken') || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        function toggleChanges() {
+            const content = document.getElementById('changesContent');
+            const icon = document.getElementById('toggleIcon');
+            content.classList.toggle('active');
+            icon.textContent = content.classList.contains('active') ? '▲' : '▼';
+        }
+
+        async function previewOptimization() {
+            const btn = document.getElementById('previewBtn');
+            btn.disabled = true;
+            btn.innerHTML = 'Loading... <span class="loading"></span>';
+
+            try {
+                const response = await fetch('/api/ops/preview/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ city, date })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showAlert('Preview updated successfully', 'success');
+                    // Reload page to show updated preview
+                    window.location.reload();
+                } else {
+                    showAlert('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Network error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Preview Optimization';
+            }
+        }
+
+        async function applyOptimization() {
+            if (!confirm('Are you sure you want to apply this optimization? This will update all assignments.')) {
+                return;
+            }
+
+            const btn = document.getElementById('applyBtn');
+            btn.disabled = true;
+            btn.innerHTML = 'Applying... <span class="loading"></span>';
+
+            try {
+                const response = await fetch('/api/ops/apply/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ city, date })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showAlert(`Optimization applied! Saved ${data.saved_km.toFixed(2)} km. Run ID: ${data.run_id}`, 'success');
+                    // Reload page to show updated state
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showAlert('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showAlert('Network error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Apply Optimization';
+            }
+        }
+
+        // Auto-expand changes table if there are changes
+        {% if preview_data %}
+        {% if preview_data.changes|length > 0 %}
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleChanges();
+        });
+        {% endif %}
+        {% endif %}
+    </script>
+</body>
+</html>
+

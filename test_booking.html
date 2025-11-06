@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cycle Works - Test Booking</title>
+<style>
+    body {
+        font-family: "Inter", sans-serif;
+        background: #fafafa;
+        max-width: 700px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        font-weight: 600;
+    }
+
+    label {
+        display: block;
+        margin-top: 18px;
+        font-weight: 500;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        margin-top: 6px;
+        font-size: 15px;
+    }
+
+    button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 35px;
+        background: #000;
+        color: #fff;
+        font-size: 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        opacity: 0.85;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    #success-box {
+        margin-top: 25px;
+        padding: 14px;
+        background: #e5ffe5;
+        border-left: 5px solid #1aa31a;
+        display: none;
+    }
+
+    #error-box {
+        margin-top: 25px;
+        padding: 14px;
+        background: #ffe5e5;
+        border-left: 5px solid #d60000;
+        display: none;
+    }
+</style>
+</head>
+<body>
+
+<h1>Book Your Cycle Service</h1>
+
+<div id="error-box"></div>
+<div id="success-box"></div>
+
+<form id="bookingForm">
+    <label>Name *</label>
+    <input type="text" id="name" required>
+
+    <label>Phone *</label>
+    <input type="text" id="phone" required>
+
+    <label>Address *</label>
+    <input type="text" id="address" required>
+
+    <label>Pincode *</label>
+    <input type="text" id="pincode" required>
+
+    <label>City *</label>
+    <select id="city" required>
+        <option value="">Select City</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Hyderabad">Hyderabad</option>
+    </select>
+
+    <label>Date *</label>
+    <input type="date" id="date" required min="">
+
+    <label>Preferred Time Slot *</label>
+    <select id="slot" required>
+        <option value="">Select a slot</option>
+    </select>
+
+    <button type="submit">Confirm Booking</button>
+</form>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000/api"; // ← change to server domain later
+
+// Set minimum date to today
+const dateField = document.getElementById("date");
+const today = new Date().toISOString().split('T')[0];
+dateField.setAttribute('min', today);
+
+const cityField = document.getElementById("city");
+const slotField = document.getElementById("slot");
+const successBox = document.getElementById("success-box");
+const errorBox = document.getElementById("error-box");
+const bookingForm = document.getElementById("bookingForm");
+const submitButton = bookingForm.querySelector('button[type="submit"]');
+
+// Get form field references
+const nameField = document.getElementById("name");
+const phoneField = document.getElementById("phone");
+const addressField = document.getElementById("address");
+const pincodeField = document.getElementById("pincode");
+
+async function loadSlots() {
+    const city = cityField.value;
+    const date = dateField.value;
+    
+    if (!city || !date) {
+        slotField.innerHTML = `<option value="">Select city and date first</option>`;
+        return;
+    }
+
+    // Show loading state
+    slotField.disabled = true;
+    slotField.innerHTML = `<option value="">Loading slots...</option>`;
+
+    try {
+        const res = await fetch(`${API_BASE}/available-slots/?city=${encodeURIComponent(city)}&date=${date}`);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+
+        slotField.innerHTML = `<option value="">Select a slot</option>`;
+
+        if (!data.available_slots || !data.available_slots.length) {
+            slotField.innerHTML = `<option value="">No slots available for this date</option>`;
+            return;
+        }
+
+        data.available_slots.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.slot;
+            opt.innerText = s.label;
+            slotField.appendChild(opt);
+        });
+    } catch (error) {
+        console.error('Error loading slots:', error);
+        slotField.innerHTML = `<option value="">Error loading slots. Please try again.</option>`;
+        errorBox.innerHTML = `❌ Error loading available slots: ${error.message}`;
+        errorBox.style.display = "block";
+    } finally {
+        slotField.disabled = false;
+    }
+}
+
+cityField.addEventListener("change", loadSlots);
+dateField.addEventListener("change", loadSlots);
+
+bookingForm.addEventListener("submit", async function(e){
+    e.preventDefault();
+
+    // Hide previous messages
+    successBox.style.display = "none";
+    errorBox.style.display = "none";
+
+    // Disable form during submission
+    submitButton.disabled = true;
+    bookingForm.classList.add("loading");
+    submitButton.textContent = "Processing...";
+
+    const payload = {
+        name: nameField.value.trim(),
+        phone: phoneField.value.trim(),
+        address: addressField.value.trim(),
+        pincode: pincodeField.value.trim(),
+        city: cityField.value,
+        date: dateField.value,
+        slot: slotField.value
+    };
+
+    try {
+        const res = await fetch(`${API_BASE}/book/`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (res.status === 201) {
+            successBox.innerHTML = `✅ Booking Confirmed! <br> Assigned Technician: <strong>${result.assigned_technician}</strong>`;
+            successBox.style.display = "block";
+            errorBox.style.display = "none";
+            bookingForm.reset();
+            slotField.innerHTML = `<option value="">Select a slot</option>`;
+            // Reset minimum date
+            dateField.setAttribute('min', today);
+        } else {
+            errorBox.innerHTML = `❌ ${result.error || "Something went wrong. Please try again."}`;
+            errorBox.style.display = "block";
+            successBox.style.display = "none";
+        }
+    } catch (error) {
+        console.error('Error submitting booking:', error);
+        errorBox.innerHTML = `❌ Network error: ${error.message}. Please check if the server is running.`;
+        errorBox.style.display = "block";
+        successBox.style.display = "none";
+    } finally {
+        // Re-enable form
+        submitButton.disabled = false;
+        bookingForm.classList.remove("loading");
+        submitButton.textContent = "Confirm Booking";
+    }
+});
+</script>
+
+</body>
+</html>
+

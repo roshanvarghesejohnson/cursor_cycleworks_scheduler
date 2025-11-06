@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import Technician, AvailabilitySlot
 
-# Register your models here.
+admin.site.register(Technician)
+admin.site.register(AvailabilitySlot)
