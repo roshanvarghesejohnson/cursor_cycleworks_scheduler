@@ -16,3 +16,6 @@ venv/
 # IDE files
 .vscode/
 .idea/
+
+venv/
+*.sqlite3
